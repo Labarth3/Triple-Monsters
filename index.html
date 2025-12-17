@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Triple Monsters</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#2b2b2b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+<style>
+:root{
+  --bg:#d8cdbb;
+  --panel:#efe6d8;
+  --ink:#2b2b2b;
+  --cell:70px;
+  --gap:10px;
+}
+*{ box-sizing:border-box; }
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--bg);
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:16px;
+}
+.screen{
+  width:min(980px,96vw);
+  background:var(--panel);
+  border-radius:26px;
+  box-shadow:0 14px 40px rgba(0,0,0,.2);
+  padding:28px;
+}
+.center{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+  text-align:center;
+}
+.title{ font-size:44px; margin:0; font-weight:900; color:var(--ink); }
+.subtitle{ opacity:.8; font-weight:700; margin:0; }
+
+.cta{
+  padding:14px 22px;
+  border-radius:18px;
+  border:0;
+  background:var(--ink);
+  color:#fff;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.menuGrid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  margin-top:14px;
+}
+.card{
+  background:rgba(255,255,255,.45);
+  border:2px solid rgba(255,255,255,.7);
+  border-radius:22px;
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  text-align:left;
+}
+.card h3{ margin:0; }
+.card p{ margin:0; opacity:.85; font-weight:650; line-height:1.25; }
+.card button{
+  margin-top:auto;
+  border:0;
+  padding:12px;
+  border-radius:16px;
+  background:var(--ink);
+  color:#fff;
+  font-weight:900;
+  cursor:pointer;
+}
+
+input[type="number"]{
+  width:110px;
+  padding:10px;
+  font-size:18px;
+  border-radius:12px;
+  border:2px solid rgba(0,0,0,.2);
+  text-align:center;
+}
+
+.gameWrap{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; justify-content:center; }
+.side{ display:flex; flex-direction:column; gap:10px; min-width:220px; }
+.btn{
+  border:0;
+  border-radius:16px;
+  padding:12px;
+  font-weight:900;
+  cursor:pointer;
+  background:var(--ink);
+  color:#fff;
+}
+.btn.reset{ background:#8b3a3a; }
+.btn.secondary{ background:#5b564d; }
+.btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+.pill{
+  background:rgba(255,255,255,.45);
+  border:2px solid rgba(255,255,255,.7);
+  border-radius:16px;
+  padding:10px;
+  font-weight:800;
+  font-size:13px;
+}
+
+.queueRow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+
+.grid{
+  display:grid;
+  gap:var(--gap);
+  margin-top:10px;
+}
+.cell{
+  width:var(--cell);
+  height:var(--cell);
+  border-radius:16px;
+  background:rgba(255,255,255,.4);
+  border:2px solid rgba(255,255,255,.7);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  cursor:pointer;
+  user-select:none;
+}
+.monster{
+  width:56px;
+  height:56px;
+  border-radius:14px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-weight:900;
+  border:2px solid rgba(0,0,0,.15);
+  box-shadow:inset 0 -6px 0 rgba(0,0,0,.1);
+}
+
+/* Palette froide -> chaude, plus sombre (0..7) */
+.m0{ background:hsl(200,85%,75%); }
+.m1{ background:hsl(190,85%,65%); }
+.m2{ background:hsl(175,80%,55%); }
+.m3{ background:hsl(155,70%,45%); }
+.m4{ background:hsl(90,70%,40%); }
+.m5{ background:hsl(40,85%,35%); }
+.m6{ background:hsl(15,85%,30%); color:#fff; }
+.m7{ background:hsl(0,80%,25%);  color:#fff; }
+
+@media(max-width:860px){ .menuGrid{ grid-template-columns:1fr; } }
+
+/* Game Over overlay */
+#gameScreen{ position:relative; }
+.overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.35);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:26px;
+  padding:16px;
+}
+.overlayCard{
+  width:min(520px,92vw);
+  background:rgba(239,230,216,.95);
+  border:2px solid rgba(255,255,255,.75);
+  border-radius:24px;
+  box-shadow:0 18px 50px rgba(0,0,0,.25);
+  padding:22px;
+  text-align:center;
+}
+.skull{ font-size:64px; margin-bottom:6px; }
+.overlayTitle{ font-size:34px; font-weight:1000; color:var(--ink); }
+
+.statsRow{
+  margin-top:14px;
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+.stat{
+  flex:1;
+  min-width:160px;
+  background:rgba(255,255,255,.55);
+  border:2px solid rgba(255,255,255,.75);
+  border-radius:18px;
+  padding:12px;
+}
+.statLabel{ font-size:12px; font-weight:900; opacity:.75; }
+.statValue{ font-size:26px; font-weight:1000; color:var(--ink); margin-top:6px; }
+
+.overlayBtns{
+  margin-top:14px;
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HOME -->
+<section id="homeScreen" class="screen">
+  <div class="center" style="min-height:520px; justify-content:center;">
+    <h1 class="title">TRIPLE MONSTERS</h1>
+    <p class="subtitle">Clique pour entrer</p>
+    <button class="cta" id="homeBtn">Entrer</button>
+  </div>
+</section>
+
+<!-- MENU -->
+<section id="menuScreen" class="screen" style="display:none;">
+  <div class="center">
+    <h1 class="title">Menu</h1>
+    <p class="subtitle">Choisis ton mode</p>
+    <div class="menuGrid">
+      <div class="card">
+        <h3>Classique</h3>
+        <p>À chaque clic : tu poses un niveau 0.</p>
+        <button data-mode="classic">Continuer</button>
+      </div>
+      <div class="card">
+        <h3>Tetris</h3>
+        <p>Tu poses le prochain monstre d’une file de 3.</p>
+        <button data-mode="tetris">Continuer</button>
+      </div>
+      <div class="card">
+        <h3>Randomizer</h3>
+        <p>Grille pré-remplie aléatoirement + au moins 3 “hauts niveaux”.</p>
+        <button data-mode="randomizer">Continuer</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONFIG -->
+<section id="configScreen" class="screen" style="display:none;">
+  <div class="center" style="min-height:520px; justify-content:center;">
+    <h1 class="title" style="font-size:38px;">Configuration</h1>
+    <p class="subtitle">Choisis la taille (min 4×4, max 10×12)</p>
+
+    <div style="display:flex; gap:20px; margin-top:10px; flex-wrap:wrap; justify-content:center;">
+      <div>
+        <div style="font-weight:800; margin-bottom:6px;">Lignes</div>
+        <input id="rowsInput" type="number" min="4" max="10" value="4">
+      </div>
+      <div>
+        <div style="font-weight:800; margin-bottom:6px;">Colonnes</div>
+        <input id="colsInput" type="number" min="4" max="12" value="6">
+      </div>
+    </div>
+
+    <button class="cta" id="startBtn" style="margin-top:10px;">Lancer</button>
+  </div>
+</section>
+
+<!-- GAME -->
+<section id="gameScreen" class="screen" style="display:none;">
+  <div class="gameWrap">
+    <div class="side">
+      <button id="undoBtn" class="btn" disabled>↩︎ Undo (max 3)</button>
+      <button id="resetBtn" class="btn reset">⟳ Reset</button>
+      <button id="menuBtn" class="btn secondary">← Menu</button>
+
+      <div class="pill">Mode : <span id="modeLabel">—</span></div>
+      <div class="pill">Annulations restantes : <span id="undoLeft">3</span></div>
+
+      <div id="queuePanel" class="pill" style="display:none;">
+        <div style="font-weight:900;">Prochains monstres (Tetris)</div>
+        <div id="queueRow" class="queueRow"></div>
+      </div>
+    </div>
+
+    <div>
+      <div style="display:flex; justify-content:space-between; font-weight:900; gap:18px;">
+        <div>Score : <span id="score">0</span></div>
+        <div>Coups : <span id="moves">0</span></div>
+      </div>
+      <div id="grid" class="grid"></div>
+
+      <div style="font-size:12px; opacity:.8; font-weight:700; margin-top:10px;">
+        Fusion : ligne/colonne/L de 3 identiques incluant le dernier clic → suppression globale, puis le dernier clic évolue (+1).
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER OVERLAY -->
+  <div id="gameOverOverlay" class="overlay" style="display:none;">
+    <div class="overlayCard">
+      <div class="skull">☠️</div>
+      <div class="overlayTitle">GAME OVER</div>
+
+      <div class="statsRow">
+        <div class="stat">
+          <div class="statLabel">Score final</div>
+          <div id="finalScore" class="statValue">0</div>
+        </div>
+        <div class="stat">
+          <div class="statLabel">Meilleur niveau</div>
+          <div id="bestLevel" class="statValue">0</div>
+        </div>
+      </div>
+
+      <div class="overlayBtns">
+        <button class="cta" id="playAgainBtn">Rejouer</button>
+        <button class="btn secondary" id="goMenuBtn">Menu</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  /* ---------- CONFIG ---------- */
+  let ROWS = 4, COLS = 6;
+  const MAX_LEVEL = 7;
+  const UNDO_MAX = 3;
+
+  // Tetris spawn levels
+  const TETRIS_SPAWN_MIN = 0;
+  const TETRIS_SPAWN_MAX = 5;
+
+  // Randomizer
+  const RANDOM_FILL_PROB = 0.55;
+  const RANDOM_LEVEL_MAX = 5;
+  const RANDOM_FORCE_LEVEL = 5;
+  const RANDOM_MIN_HIGH = 3;
+
+  /* ---------- STATE ---------- */
+  let mode = null;
+  let board = [];
+  let score = 0;
+  let moves = 0;
+  let undoStack = [];
+  let queue = [];
+
+  /* ---------- DOM ---------- */
+  const $ = (id) => document.getElementById(id);
+  const screens = {
+    home: $("homeScreen"),
+    menu: $("menuScreen"),
+    config: $("configScreen"),
+    game: $("gameScreen"),
+  };
+
+  const gridEl = $("grid");
+  const scoreEl = $("score");
+  const movesEl = $("moves");
+
+  const undoBtn = $("undoBtn");
+  const resetBtn = $("resetBtn");
+  const menuBtn = $("menuBtn");
+  const undoLeftEl = $("undoLeft");
+  const modeLabel = $("modeLabel");
+
+  const queuePanel = $("queuePanel");
+  const queueRow = $("queueRow");
+
+  const rowsInput = $("rowsInput");
+  const colsInput = $("colsInput");
+
+  const overlay = $("gameOverOverlay");
+  const finalScoreEl = $("finalScore");
+  const bestLevelEl = $("bestLevel");
+  const playAgainBtn = $("playAgainBtn");
+  const goMenuBtn = $("goMenuBtn");
+
+  /* ---------- HELPERS ---------- */
+  const inBounds = (r,c) => r>=0 && r<ROWS && c>=0 && c<COLS;
+  const copyBoard = (b) => b.map(row => row.slice());
+  const randInt = (min,max) => Math.floor(Math.random()*(max-min+1))+min;
+
+  function show(screen){
+    Object.values(screens).forEach(s => s.style.display = "none");
+    screens[screen].style.display = "";
+  }
+
+  function hideOverlay(){ overlay.style.display = "none"; }
+  function showOverlay(){
+    finalScoreEl.textContent = String(score);
+    bestLevelEl.textContent = String(getBestLevel());
+    overlay.style.display = "";
+  }
+
+  function isBoardFull(){
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        if (board[r][c] === null) return false;
+      }
+    }
+    return true;
+  }
+
+  function getBestLevel(){
+    let best = 0;
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        const v = board[r][c];
+        if (v !== null && v > best) best = v;
+      }
+    }
+    return best;
+  }
+
+  function checkGameOver(){
+    if (isBoardFull()) showOverlay();
+  }
+
+  /* ---------- UNDO ---------- */
+  function updateUndoUI(){
+    undoBtn.disabled = undoStack.length === 0;
+    undoLeftEl.textContent = String(UNDO_MAX - undoStack.length);
+  }
+
+  function pushUndoSnapshot(){
+    undoStack.push({
+      board: copyBoard(board),
+      score,
+      moves,
+      queue: queue.slice()
+    });
+    if (undoStack.length > UNDO_MAX) undoStack.shift();
+    updateUndoUI();
+  }
+
+  undoBtn.addEventListener("click", () => {
+    if (!undoStack.length) return;
+    const prev = undoStack.pop();
+    board = copyBoard(prev.board);
+    score = prev.score;
+    moves = prev.moves;
+    queue = prev.queue.slice();
+    hideOverlay();
+    updateUndoUI();
+    render();
+  });
+
+  /* ---------- TETRIS QUEUE ---------- */
+  function initQueue(){
+    queue = [
+      randInt(TETRIS_SPAWN_MIN, TETRIS_SPAWN_MAX),
+      randInt(TETRIS_SPAWN_MIN, TETRIS_SPAWN_MAX),
+      randInt(TETRIS_SPAWN_MIN, TETRIS_SPAWN_MAX)
+    ];
+  }
+
+  function drawQueue(){
+    if (mode !== "tetris"){
+      queuePanel.style.display = "none";
+      return;
+    }
+    queuePanel.style.display = "";
+    queueRow.innerHTML = "";
+    for (const lv of queue){
+      const m = document.createElement("div");
+      m.className = "monster m" + lv;
+      m.textContent = lv;
+      m.style.width = "44px";
+      m.style.height = "44px";
+      queueRow.appendChild(m);
+    }
+  }
+
+  function nextFromQueue(){
+    const lv = queue.shift();
+    queue.push(randInt(TETRIS_SPAWN_MIN, TETRIS_SPAWN_MAX));
+    return lv;
+  }
+
+  /* ---------- RANDOMIZER INIT ---------- */
+  function initRandomBoard(){
+    board = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        if (Math.random() < RANDOM_FILL_PROB){
+          board[r][c] = randInt(0, RANDOM_LEVEL_MAX);
+        }
+      }
+    }
+
+    let placed = 0;
+    while (placed < RANDOM_MIN_HIGH){
+      const r = randInt(0, ROWS-1);
+      const c = randInt(0, COLS-1);
+      board[r][c] = RANDOM_FORCE_LEVEL;
+      placed++;
+    }
+  }
+
+  /* ---------- START / RESET ---------- */
+  function resetGame(){
+    score = 0;
+    moves = 0;
+    undoStack = [];
+    hideOverlay();
+    updateUndoUI();
+
+    if (mode === "randomizer") initRandomBoard();
+    else board = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+
+    if (mode === "tetris") initQueue();
+    else queue = [];
+
+    render();
+  }
+
+  function startGame(){
+    modeLabel.textContent =
+      (mode === "classic" ? "Classique" : mode === "tetris" ? "Tetris" : "Randomizer");
+    show("game");
+    resetGame();
+  }
+
+  /* ---------- RENDER ---------- */
+  function render(){
+    gridEl.innerHTML = "";
+    gridEl.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
+    gridEl.style.gridTemplateRows = `repeat(${ROWS}, var(--cell))`;
+
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.title = `(${r+1}, ${c+1})`;
+        cell.addEventListener("click", () => clickCell(r,c));
+
+        const v = board[r][c];
+        if (v !== null){
+          const m = document.createElement("div");
+          m.className = "monster m" + v;
+          m.textContent = v; // debug
+          cell.appendChild(m);
+        }
+        gridEl.appendChild(cell);
+      }
+    }
+
+    scoreEl.textContent = String(score);
+    movesEl.textContent = String(moves);
+    drawQueue();
+  }
+
+  /* ---------- RULES: GLOBAL MERGE (ligne/col/L, sans priorité) ---------- */
+
+  function findAllTripletsIncluding(r, c, level){
+    const candidates = [];
+
+    // horizontales
+    candidates.push([[r,c-2],[r,c-1],[r,c]]);
+    candidates.push([[r,c-1],[r,c],[r,c+1]]);
+    candidates.push([[r,c],[r,c+1],[r,c+2]]);
+
+    // verticales
+    candidates.push([[r-2,c],[r-1,c],[r,c]]);
+    candidates.push([[r-1,c],[r,c],[r+1,c]]);
+    candidates.push([[r,c],[r+1,c],[r+2,c]]);
+
+    // L (12 variantes)
+    candidates.push([[r,c],[r-1,c],[r,c-1]]);
+    candidates.push([[r,c],[r-1,c],[r,c+1]]);
+    candidates.push([[r,c],[r+1,c],[r,c-1]]);
+    candidates.push([[r,c],[r+1,c],[r,c+1]]);
+
+    candidates.push([[r,c],[r-1,c],[r-1,c-1]]);
+    candidates.push([[r,c],[r-1,c],[r-1,c+1]]);
+    candidates.push([[r,c],[r+1,c],[r+1,c-1]]);
+    candidates.push([[r,c],[r+1,c],[r+1,c+1]]);
+
+    candidates.push([[r,c],[r,c-1],[r-1,c-1]]);
+    candidates.push([[r,c],[r,c-1],[r+1,c-1]]);
+    candidates.push([[r,c],[r,c+1],[r-1,c+1]]);
+    candidates.push([[r,c],[r,c+1],[r+1,c+1]]);
+
+    const valid = [];
+    const seen = new Set();
+
+    for (const t of candidates){
+      if (t.every(([rr,cc]) => inBounds(rr,cc) && board[rr][cc] === level)){
+        const key = t.map(([rr,cc]) => `${rr},${cc}`).sort().join("|");
+        if (!seen.has(key)){
+          seen.add(key);
+          valid.push(t);
+        }
+      }
+    }
+    return valid;
+  }
+
+  function tryGlobalMergeAt(r, c){
+    const level = board[r][c];
+    if (level === null) return false;
+
+    const triplets = findAllTripletsIncluding(r, c, level);
+    if (!triplets.length) return false;
+
+    // union de toutes les cases à supprimer (sans priorité)
+    const toRemove = new Set();
+    for (const t of triplets){
+      for (const [rr,cc] of t) toRemove.add(`${rr},${cc}`);
+    }
+
+    // suppression globale
+    for (const key of toRemove){
+      const [rr,cc] = key.split(",").map(Number);
+      board[rr][cc] = null;
+    }
+
+    // évolution UNIQUE sur le dernier clic
+    board[r][c] = Math.min(level + 1, MAX_LEVEL);
+
+    // score simple
+    score += (level + 1) * 10 * Math.max(1, toRemove.size - 1);
+    return true;
+  }
+
+  /* ---------- CLICK ---------- */
+  function clickCell(r, c){
+    if (overlay.style.display !== "none") return; // bloque clics sous overlay
+    if (board[r][c] !== null) return;
+
+    pushUndoSnapshot();
+
+    const spawn = (mode === "tetris") ? nextFromQueue() : 0;
+    board[r][c] = spawn;
+    moves++;
+
+    while (tryGlobalMergeAt(r, c)) {}
+    render();
+    checkGameOver();
+  }
+
+  /* ---------- UI EVENTS ---------- */
+  $("homeBtn").addEventListener("click", () => show("menu"));
+
+  document.querySelectorAll("[data-mode]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      mode = btn.dataset.mode;
+      show("config");
+    });
+  });
+
+  $("startBtn").addEventListener("click", () => {
+    const r = Number(rowsInput.value);
+    const c = Number(colsInput.value);
+    ROWS = Math.min(10, Math.max(4, r));
+    COLS = Math.min(12, Math.max(4, c));
+    startGame();
+  });
+
+  resetBtn.addEventListener("click", resetGame);
+  menuBtn.addEventListener("click", () => { hideOverlay(); show("menu"); });
+
+  playAgainBtn.addEventListener("click", () => resetGame());
+  goMenuBtn.addEventListener("click", () => { hideOverlay(); show("menu"); });
+
+  // start
+  show("home");
+
+  // PWA
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js");
+  }
+})();
+</script>
+
+</body>
+</html>
